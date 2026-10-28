@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>团队日程日历</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: "PingFang SC", "Microsoft YaHei", sans-serif; background: #F5F7FA; color: #0F172A; }
+.header { background: linear-gradient(135deg, #015AAA, #1A3A6B); padding: 28px 40px; color: #fff; }
+.header h1 { font-size: 22px; font-weight: 700; margin-bottom: 4px; }
+.header p { font-size: 13px; color: rgba(255,255,255,0.7); }
+.tabs { display: flex; flex-wrap: wrap; gap: 8px; padding: 14px 24px; background: #fff; border-bottom: 1px solid #E2E8F0; position: sticky; top: 0; z-index: 100; }
+.tab { padding: 8px 18px; border-radius: 12px; cursor: pointer; font-size: 14px; font-weight: 600; color: #334155; background: #F1F5F9; border: 1px solid #E2E8F0; transition: all 0.2s; white-space: nowrap; user-select: none; letter-spacing: 0.5px; }
+.tab:hover { background: #E8F1FA; border-color: #60A5FA; color: #015AAA; transform: translateY(-1px); }
+.tab.active { color: #fff; background: linear-gradient(135deg, #015AAA, #2563EB); border-color: transparent; font-weight: 700; box-shadow: 0 3px 8px rgba(1,90,170,0.3); }
+.calendar-wrap { padding: 24px; max-width: 1400px; margin: 0 auto; }
+.cal-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+.cal-title { font-size: 18px; font-weight: 700; color: #015AAA; }
+.nav-btn { background: #fff; border: 1px solid #E2E8F0; border-radius: 8px; padding: 6px 16px; cursor: pointer; font-size: 14px; color: #475569; transition: all 0.2s; }
+.nav-btn:hover { background: #E8F1FA; color: #015AAA; border-color: #93C5FD; }
+.cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
+.cal-weekday { text-align: center; font-size: 13px; font-weight: 600; color: #64748B; padding: 10px 0; background: #F8FAFC; border-radius: 6px; }
+.cal-day { min-height: 130px; background: #fff; border: 1px solid #E2E8F0; border-radius: 10px; padding: 8px; overflow: hidden; position: relative; transition: all 0.2s; }
+.cal-day:hover { border-color: #93C5FD; box-shadow: 0 2px 10px rgba(1,90,170,0.08); }
+.cal-day.other-month { background: #FAFBFC; opacity: 0.45; }
+.cal-day.today { border: 2px solid #015AAA; background: #F0F7FF; }
+.day-num { font-size: 15px; font-weight: 700; color: #1E293B; margin-bottom: 6px; }
+.day-num.weekend { color: #EF4444; }
+.event-item { border-radius: 4px; padding: 4px 8px 4px 10px; margin-bottom: 4px; cursor: pointer; font-size: 12px; line-height: 1.6; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; transition: all 0.15s; border-left: 3px solid transparent; }
+.event-item:hover { transform: translateX(2px); filter: brightness(0.97); box-shadow: 0 1px 4px rgba(0,0,0,0.06); }
+.event-time { font-weight: 700; margin-right: 6px; font-size: 12px; }
+.modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(15,23,42,0.35); z-index: 1000; justify-content: center; align-items: center; backdrop-filter: blur(2px); }
+.modal-overlay.show { display: flex; }
+.modal { background: #fff; border-radius: 16px; padding: 28px 32px; width: 460px; max-width: 90%; box-shadow: 0 12px 40px rgba(0,0,0,0.15); animation: fadeIn 0.2s ease; }
+@keyframes fadeIn { from { opacity: 0; transform: translateY(-12px) scale(0.97); } to { opacity: 1; transform: translateY(0) scale(1); } }
+.modal-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 18px; }
+.modal-title { font-size: 18px; font-weight: 700; color: #0F172A; }
+.modal-close { background: #F1F5F9; border: none; width: 30px; height: 30px; border-radius: 50%; font-size: 16px; cursor: pointer; color: #94A3B8; transition: all 0.2s; display: flex; align-items: center; justify-content: center; }
+.modal-close:hover { background: #FEE2E2; color: #DC2626; }
+.modal-row { display: flex; margin-bottom: 14px; align-items: flex-start; }
+.modal-label { width: 56px; font-size: 13px; color: #94A3B8; flex-shrink: 0; font-weight: 500; padding-top: 1px; }
+.modal-value { font-size: 14px; color: #1E293B; flex: 1; line-height: 1.5; }
+.modal-color-bar { height: 4px; border-radius: 2px; margin-bottom: 18px; }
+@media (max-width: 768px) {
+  .cal-day { min-height: 80px; }
+  .tabs { padding: 8px 12px; gap: 6px; }
+  .calendar-wrap { padding: 12px; }
+  .tab { padding: 6px 14px; font-size: 13px; }
+}
+</style>
+</head>
+<body>
+<div class="header">
+  <h1>团队日程日历</h1>
+  <p>点击成员切换查看，点击日程查看详情</p>
+</div>
+<div class="tabs" id="tabs"></div>
+<div class="calendar-wrap">
+  <div class="cal-header">
+    <button class="nav-btn" id="prevMonth">&#8249; 上一月</button>
+    <span class="cal-title" id="calTitle">2026年9月</span>
+    <button class="nav-btn" id="nextMonth">下一月 &#8250;</button>
+  </div>
+  <div class="cal-grid" id="weekdayRow"></div>
+  <div class="cal-grid" id="calGrid" style="margin-top: 4px;"></div>
+</div>
+<div class="modal-overlay" id="modalOverlay">
+  <div class="modal">
+    <div class="modal-header">
+      <span class="modal-title" id="modalTitle">日程详情</span>
+      <button class="modal-close" id="modalClose">&#10005;</button>
+    </div>
+    <div class="modal-color-bar" id="modalColorBar"></div>
+    <div class="modal-row">
+      <div class="modal-label">主题</div>
+      <div class="modal-value" id="modalSubject"></div>
+    </div>
+    <div class="modal-row">
+      <div class="modal-label">时间</div>
+      <div class="modal-value" id="modalTime"></div>
+    </div>
+    <div class="modal-row">
+      <div class="modal-label">地址</div>
+      <div class="modal-value" id="modalLocation"></div>
+    </div>
+    <div class="modal-row">
+      <div class="modal-label">说明</div>
+      <div class="modal-value" id="modalDesc"></div>
+    </div>
+  </div>
+</div>
+<script id="cal-data" type="application/json">{"members": ["唐念行", "张俊泽", "范红娟", "张浩", "王梦滢", "谭亚辉", "宋晓梅", "付旭光", "冯文彬", "刘福佩", "苏慧", "王朔"], "events": {"唐念行": [{"date": "2026-09-01", "start": "09:00", "end": "10:00", "title": "项目周会", "location": "3号会议室", "description": "本周项目进展同步，确认下周里程碑"}, {"date": "2026-09-03", "start": "14:00", "end": "15:30", "title": "需求评审", "location": "5号会议室", "description": "评审Q4新功能需求文档"}, {"date": "2026-09-08", "start": "10:00", "end": "11:00", "title": "1v1沟通", "location": "茶水间", "description": "与组员定期1v1"}, {"date": "2026-09-10", "start": "09:00", "end": "10:00", "title": "晨会同步", "location": "3号会议室", "description": "每日站会"}, {"date": "2026-09-10", "start": "10:30", "end": "11:30", "title": "竞品分析", "location": "8号会议室", "description": "竞品功能对比讨论"}, {"date": "2026-09-10", "start": "14:00", "end": "15:00", "title": "用户访谈", "location": "远程-腾讯会议", "description": "深度访谈目标用户"}, {"date": "2026-09-10", "start": "16:00", "end": "17:00", "title": "设计走查", "location": "设计部", "description": "UI设计稿走查"}, {"date": "2026-09-10", "start": "17:30", "end": "18:00", "title": "周报整理", "location": "工位", "description": "整理本周工作"}, {"date": "2026-09-15", "start": "09:00", "end": "12:00", "title": "季度规划会", "location": "大会议室", "description": "Q4季度规划讨论"}, {"date": "2026-09-18", "start": "14:00", "end": "15:00", "title": "技术分享", "location": "培训室", "description": "AI技术在项目中的应用"}, {"date": "2026-09-22", "start": "10:00", "end": "11:30", "title": "跨部门对齐", "location": "6号会议室", "description": "与产品部对齐需求优先级"}, {"date": "2026-09-25", "start": "09:00", "end": "10:00", "title": "晨会同步", "location": "3号会议室", "description": "每日站会"}, {"date": "2026-09-25", "start": "10:30", "end": "11:30", "title": "需求评审", "location": "5号会议室", "description": "评审新功能需求"}, {"date": "2026-09-25", "start": "14:00", "end": "15:30", "title": "用户访谈", "location": "远程", "description": "访谈3位用户"}, {"date": "2026-09-25", "start": "16:00", "end": "17:00", "title": "竞品周会", "location": "8号会议室", "description": "竞品动态汇报"}, {"date": "2026-09-25", "start": "17:30", "end": "18:00", "title": "周报整理", "location": "工位", "description": "本周总结"}, {"date": "2026-09-28", "start": "10:00", "end": "11:00", "title": "月度复盘", "location": "大会议室", "description": "9月工作复盘"}], "张俊泽": [{"date": "2026-09-02", "start": "09:30", "end": "10:30", "title": "技术评审", "location": "1号会议室", "description": "架构方案评审"}, {"date": "2026-09-05", "start": "14:00", "end": "16:00", "title": "代码走查", "location": "工位", "description": "核心模块代码审查"}, {"date": "2026-09-11", "start": "10:00", "end": "11:00", "title": "接口联调", "location": "工位", "description": "与后端联调API"}, {"date": "2026-09-11", "start": "14:00", "end": "15:00", "title": "技术分享", "location": "培训室", "description": "前端新技术分享"}, {"date": "2026-09-16", "start": "09:00", "end": "10:00", "title": "冲刺计划", "location": "3号会议室", "description": "Sprint规划"}, {"date": "2026-09-20", "start": "11:00", "end": "12:00", "title": "缺陷修复", "location": "工位", "description": "修复测试反馈的缺陷"}, {"date": "2026-09-24", "start": "14:00", "end": "15:30", "title": "技术方案评审", "location": "5号会议室", "description": "下季度技术方案"}, {"date": "2026-09-26", "start": "10:00", "end": "11:00", "title": "部署上线", "location": "机房", "description": "v2.1版本上线"}], "范红娟": [{"date": "2026-09-01", "start": "14:00", "end": "15:00", "title": "设计评审", "location": "设计部", "description": "首页改版设计评审"}, {"date": "2026-09-04", "start": "10:00", "end": "11:30", "title": "用户调研", "location": "用研室", "description": "可用性测试"}, {"date": "2026-09-09", "start": "09:00", "end": "10:00", "title": "设计走查", "location": "设计部", "description": "视觉走查"}, {"date": "2026-09-09", "start": "14:00", "end": "15:00", "title": "原型评审", "location": "5号会议室", "description": "交互原型讨论"}, {"date": "2026-09-09", "start": "16:00", "end": "17:00", "title": "组件库维护", "location": "工位", "description": "更新设计组件库"}, {"date": "2026-09-14", "start": "10:00", "end": "12:00", "title": "竞品体验", "location": "工位", "description": "体验竞品最新版本"}, {"date": "2026-09-19", "start": "14:00", "end": "15:30", "title": "设计交付", "location": "设计部", "description": "交付开发设计稿"}, {"date": "2026-09-23", "start": "10:00", "end": "11:00", "title": "设计验收", "location": "工位", "description": "开发实现验收"}, {"date": "2026-09-27", "start": "14:00", "end": "15:00", "title": "月度总结", "location": "设计部", "description": "9月设计工作总结"}], "张浩": [{"date": "2026-09-03", "start": "09:00", "end": "10:00", "title": "后端例会", "location": "2号会议室", "description": "后端团队周会"}, {"date": "2026-09-06", "start": "14:00", "end": "16:00", "title": "性能优化", "location": "工位", "description": "接口性能调优"}, {"date": "2026-09-12", "start": "10:00", "end": "11:00", "title": "数据库评审", "location": "3号会议室", "description": "表结构设计评审"}, {"date": "2026-09-17", "start": "09:00", "end": "10:00", "title": "接口文档", "location": "工位", "description": "编写API文档"}, {"date": "2026-09-17", "start": "14:00", "end": "15:00", "title": "联调测试", "location": "工位", "description": "前后端联调"}, {"date": "2026-09-21", "start": "10:00", "end": "11:30", "title": "技术债务", "location": "2号会议室", "description": "技术债清理讨论"}, {"date": "2026-09-25", "start": "14:00", "end": "15:00", "title": "上线评审", "location": "大会议室", "description": "上线前评审"}], "王梦滢": [{"date": "2026-09-02", "start": "10:00", "end": "11:00", "title": "数据分析", "location": "工位", "description": "用户行为数据分析"}, {"date": "2026-09-05", "start": "14:00", "end": "15:30", "title": "报表汇报", "location": "6号会议室", "description": "周度数据汇报"}, {"date": "2026-09-08", "start": "09:00", "end": "10:00", "title": "数据清洗", "location": "工位", "description": "清洗调研数据"}, {"date": "2026-09-08", "start": "11:00", "end": "12:00", "title": "指标对齐", "location": "3号会议室", "description": "与产品对齐数据指标"}, {"date": "2026-09-13", "start": "14:00", "end": "16:00", "title": "报告撰写", "location": "工位", "description": "撰写用户分析报告"}, {"date": "2026-09-18", "start": "10:00", "end": "11:00", "title": "数据看板", "location": "工位", "description": "搭建数据看板"}, {"date": "2026-09-22", "start": "14:00", "end": "15:00", "title": "复盘会", "location": "6号会议室", "description": "数据复盘"}, {"date": "2026-09-26", "start": "10:00", "end": "11:30", "title": "月报", "location": "工位", "description": "9月数据月报"}], "谭亚辉": [{"date": "2026-09-01", "start": "10:00", "end": "11:00", "title": "测试评审", "location": "4号会议室", "description": "测试方案评审"}, {"date": "2026-09-07", "start": "14:00", "end": "15:00", "title": "用例编写", "location": "工位", "description": "编写测试用例"}, {"date": "2026-09-10", "start": "09:00", "end": "10:00", "title": "回归测试", "location": "工位", "description": "执行回归测试"}, {"date": "2026-09-15", "start": "14:00", "end": "16:00", "title": "性能测试", "location": "工位", "description": "压测执行"}, {"date": "2026-09-20", "start": "10:00", "end": "11:00", "title": "缺陷跟进", "location": "4号会议室", "description": "缺陷修复跟进"}, {"date": "2026-09-24", "start": "14:00", "end": "15:00", "title": "测试报告", "location": "工位", "description": "输出测试报告"}], "宋晓梅": [{"date": "2026-09-02", "start": "09:00", "end": "10:00", "title": "用研计划", "location": "用研室", "description": "制定用户研究计划"}, {"date": "2026-09-04", "start": "14:00", "end": "15:30", "title": "竞品分析", "location": "工位", "description": "竞品功能拆解"}, {"date": "2026-09-09", "start": "10:00", "end": "11:00", "title": "访谈提纲", "location": "工位", "description": "编写用户访谈提纲"}, {"date": "2026-09-09", "start": "14:00", "end": "15:00", "title": "画像构建", "location": "用研室", "description": "用户画像梳理"}, {"date": "2026-09-12", "start": "09:00", "end": "12:00", "title": "定性访谈", "location": "用研室", "description": "5位用户深度访谈"}, {"date": "2026-09-16", "start": "14:00", "end": "15:30", "title": "报告撰写", "location": "工位", "description": "用户研究报告撰写"}, {"date": "2026-09-20", "start": "10:00", "end": "11:00", "title": "产品启示", "location": "6号会议室", "description": "用研结论对产品的启示"}, {"date": "2026-09-23", "start": "14:00", "end": "15:00", "title": "用户筛选", "location": "工位", "description": "下轮调研用户筛选"}, {"date": "2026-09-27", "start": "10:00", "end": "11:30", "title": "月度复盘", "location": "用研室", "description": "9月用研工作复盘"}], "付旭光": [{"date": "2026-09-03", "start": "10:00", "end": "11:00", "title": "产品评审", "location": "5号会议室", "description": "PRD评审"}, {"date": "2026-09-06", "start": "14:00", "end": "15:00", "title": "需求梳理", "location": "工位", "description": "梳理下季度需求"}, {"date": "2026-09-11", "start": "09:00", "end": "10:00", "title": "竞品调研", "location": "工位", "description": "行业竞品调研"}, {"date": "2026-09-16", "start": "14:00", "end": "16:00", "title": "产品规划", "location": "大会议室", "description": "Q4产品规划讨论"}, {"date": "2026-09-21", "start": "10:00", "end": "11:30", "title": "用户反馈", "location": "工位", "description": "整理用户反馈"}, {"date": "2026-09-25", "start": "14:00", "end": "15:00", "title": "需求确认", "location": "5号会议室", "description": "确认下版本需求"}], "冯文彬": [{"date": "2026-09-01", "start": "14:00", "end": "15:00", "title": "运维检查", "location": "机房", "description": "服务器日常检查"}, {"date": "2026-09-05", "start": "10:00", "end": "11:00", "title": "部署演练", "location": "机房", "description": "上线部署演练"}, {"date": "2026-09-10", "start": "09:00", "end": "10:00", "title": "监控配置", "location": "工位", "description": "配置告警监控"}, {"date": "2026-09-14", "start": "14:00", "end": "15:30", "title": "日志分析", "location": "工位", "description": "分析线上日志"}, {"date": "2026-09-19", "start": "10:00", "end": "11:00", "title": "安全审计", "location": "机房", "description": "系统安全审计"}, {"date": "2026-09-23", "start": "14:00", "end": "15:00", "title": "容量评估", "location": "工位", "description": "服务器容量评估"}, {"date": "2026-09-26", "start": "09:00", "end": "10:00", "title": "上线支持", "location": "机房", "description": "v2.1上线支持"}], "刘福佩": [{"date": "2026-09-02", "start": "14:00", "end": "15:00", "title": "市场调研", "location": "工位", "description": "行业市场调研"}, {"date": "2026-09-07", "start": "10:00", "end": "11:30", "title": "品牌讨论", "location": "7号会议室", "description": "品牌策略讨论"}, {"date": "2026-09-12", "start": "14:00", "end": "15:00", "title": "用户画像", "location": "工位", "description": "目标用户画像分析"}, {"date": "2026-09-17", "start": "10:00", "end": "11:00", "title": "内容策划", "location": "工位", "description": "内容营销策划"}, {"date": "2026-09-22", "start": "14:00", "end": "15:30", "title": "竞品对标", "location": "7号会议室", "description": "竞品营销对标分析"}, {"date": "2026-09-28", "start": "10:00", "end": "11:00", "title": "月度汇报", "location": "大会议室", "description": "9月工作汇报"}], "苏慧": [{"date": "2026-09-04", "start": "09:00", "end": "10:00", "title": "项目对齐", "location": "3号会议室", "description": "项目进度对齐"}, {"date": "2026-09-08", "start": "14:00", "end": "15:00", "title": "流程优化", "location": "工位", "description": "工作流程优化"}, {"date": "2026-09-13", "start": "10:00", "end": "11:30", "title": "资源协调", "location": "3号会议室", "description": "跨部门资源协调"}, {"date": "2026-09-18", "start": "14:00", "end": "15:00", "title": "风险排查", "location": "工位", "description": "项目风险排查"}, {"date": "2026-09-23", "start": "10:00", "end": "11:00", "title": "里程碑确认", "location": "5号会议室", "description": "确认下阶段里程碑"}, {"date": "2026-09-27", "start": "14:00", "end": "15:30", "title": "项目总结", "location": "3号会议室", "description": "9月项目总结"}], "王朔": [{"date": "2026-09-03", "start": "14:00", "end": "15:00", "title": "前端开发", "location": "工位", "description": "页面开发"}, {"date": "2026-09-06", "start": "10:00", "end": "11:00", "title": "组件开发", "location": "工位", "description": "通用组件开发"}, {"date": "2026-09-11", "start": "09:00", "end": "10:00", "title": "联调", "location": "工位", "description": "前后端联调"}, {"date": "2026-09-11", "start": "14:00", "end": "15:00", "title": "Bug修复", "location": "工位", "description": "修复已知Bug"}, {"date": "2026-09-15", "start": "10:00", "end": "11:30", "title": "代码评审", "location": "2号会议室", "description": "代码Review"}, {"date": "2026-09-20", "start": "14:00", "end": "15:00", "title": "性能优化", "location": "工位", "description": "页面性能优化"}, {"date": "2026-09-24", "start": "10:00", "end": "11:00", "title": "自测", "location": "工位", "description": "功能自测"}, {"date": "2026-09-26", "start": "14:00", "end": "15:00", "title": "上线支持", "location": "工位", "description": "配合上线"}]}}</script>
+<script>
+(function() {
+  var data = JSON.parse(document.getElementById('cal-data').textContent);
+  var members = data.members;
+  var allEvents = data.events;
+  var currentMember = members[0];
+  var currentYear = 2026;
+  var currentMonth = 8;
+
+  var eventPalettes = [
+    { bg: '#EFF6FF', border: '#3B82F6', text: '#1E40AF' },
+    { bg: '#FFF7ED', border: '#F97316', text: '#9A3412' },
+    { bg: '#F0FDF4', border: '#22C55E', text: '#166534' },
+    { bg: '#FAF5FF', border: '#A855F7', text: '#6B21A8' },
+    { bg: '#FFF1F2', border: '#F43F5E', text: '#9F1239' },
+    { bg: '#ECFEFF', border: '#06B6D4', text: '#155E75' },
+    { bg: '#FEFCE8', border: '#EAB308', text: '#854D0E' },
+    { bg: '#FDF2F8', border: '#EC4899', text: '#9D174D' }
+  ];
+
+  function getEventColor(index) {
+    return eventPalettes[index % eventPalettes.length];
+  }
+
+  var weekdays = ['日','一','二','三','四','五','六'];
+  var weekdayRow = document.getElementById('weekdayRow');
+  for (var i = 0; i < 7; i++) {
+    var wd = document.createElement('div');
+    wd.className = 'cal-weekday';
+    wd.textContent = '周' + weekdays[i];
+    weekdayRow.appendChild(wd);
+  }
+
+  var tabsEl = document.getElementById('tabs');
+  members.forEach(function(m) {
+    var tab = document.createElement('div');
+    tab.className = 'tab' + (m === currentMember ? ' active' : '');
+    tab.textContent = m;
+    tab.addEventListener('click', function() {
+      currentMember = m;
+      document.querySelectorAll('.tab').forEach(function(t) { t.classList.remove('active'); });
+      tab.classList.add('active');
+      renderCalendar();
+    });
+    tabsEl.appendChild(tab);
+  });
+
+  function getEventsForDate(dateStr) {
+    var memberEvents = allEvents[currentMember] || [];
+    return memberEvents.filter(function(e) { return e.date === dateStr; });
+  }
+
+  function renderCalendar() {
+    var calTitle = document.getElementById('calTitle');
+    calTitle.textContent = currentYear + '年' + (currentMonth + 1) + '月';
+    var calGrid = document.getElementById('calGrid');
+    calGrid.innerHTML = '';
+
+    var firstDay = new Date(currentYear, currentMonth, 1);
+    var lastDate = new Date(currentYear, currentMonth + 1, 0).getDate();
+    var startWeekday = firstDay.getDay();
+    var prevLastDate = new Date(currentYear, currentMonth, 0).getDate();
+    var today = new Date();
+    var todayStr = today.getFullYear() + '-' + String(today.getMonth() + 1).padStart(2, '0') + '-' + String(today.getDate()).padStart(2, '0');
+    var totalCells = Math.ceil((startWeekday + lastDate) / 7) * 7;
+
+    for (var i = 0; i < totalCells; i++) {
+      var dayEl = document.createElement('div');
+      dayEl.className = 'cal-day';
+      var dayNum, dateStr, isCurrentMonth;
+
+      if (i < startWeekday) {
+        dayNum = prevLastDate - startWeekday + 1 + i;
+        dayEl.classList.add('other-month');
+        isCurrentMonth = false;
+        var prevMonth = currentMonth === 0 ? 11 : currentMonth - 1;
+        var prevYear = currentMonth === 0 ? currentYear - 1 : currentYear;
+        dateStr = prevYear + '-' + String(prevMonth + 1).padStart(2, '0') + '-' + String(dayNum).padStart(2, '0');
+      } else if (i >= startWeekday + lastDate) {
+        dayNum = i - startWeekday - lastDate + 1;
+        dayEl.classList.add('other-month');
+        isCurrentMonth = false;
+        var nextMonth = currentMonth === 11 ? 0 : currentMonth + 1;
+        var nextYear = currentMonth === 11 ? currentYear + 1 : currentYear;
+        dateStr = nextYear + '-' + String(nextMonth + 1).padStart(2, '0') + '-' + String(dayNum).padStart(2, '0');
+      } else {
+        dayNum = i - startWeekday + 1;
+        isCurrentMonth = true;
+        dateStr = currentYear + '-' + String(currentMonth + 1).padStart(2, '0') + '-' + String(dayNum).padStart(2, '0');
+      }
+
+      if (dateStr === todayStr) dayEl.classList.add('today');
+
+      var numEl = document.createElement('div');
+      numEl.className = 'day-num';
+      if (isCurrentMonth) {
+        var wdIdx = new Date(currentYear, currentMonth, dayNum).getDay();
+        if (wdIdx === 0 || wdIdx === 6) numEl.classList.add('weekend');
+      }
+      numEl.textContent = dayNum;
+      dayEl.appendChild(numEl);
+
+      var events = getEventsForDate(dateStr);
+      var maxShow = 6;
+      events.slice(0, maxShow).forEach(function(ev, idx) {
+        var evEl = document.createElement('div');
+        evEl.className = 'event-item';
+        var palette = getEventColor(idx);
+        evEl.style.background = palette.bg;
+        evEl.style.borderLeftColor = palette.border;
+        evEl.style.color = palette.text;
+        evEl.innerHTML = '<span class="event-time">' + ev.start + '</span>' + ev.title;
+        evEl.addEventListener('click', function(e) {
+          e.stopPropagation();
+          openModal(ev, palette);
+        });
+        dayEl.appendChild(evEl);
+      });
+
+      if (events.length > maxShow) {
+        var more = document.createElement('div');
+        more.style.fontSize = '11px';
+        more.style.color = '#94A3B8';
+        more.style.padding = '2px 8px';
+        more.style.cursor = 'pointer';
+        more.textContent = '+' + (events.length - maxShow) + ' more...';
+        dayEl.appendChild(more);
+      }
+
+      calGrid.appendChild(dayEl);
+    }
+  }
+
+  function openModal(ev, palette) {
+    document.getElementById('modalTitle').textContent = ev.title;
+    document.getElementById('modalSubject').textContent = ev.title;
+    document.getElementById('modalTime').textContent = ev.date + ' ' + ev.start + ' - ' + ev.end;
+    document.getElementById('modalLocation').textContent = ev.location || '无';
+    document.getElementById('modalDesc').textContent = ev.description || '无';
+    document.getElementById('modalColorBar').style.background = palette.border;
+    document.getElementById('modalOverlay').classList.add('show');
+  }
+
+  document.getElementById('modalClose').addEventListener('click', function() {
+    document.getElementById('modalOverlay').classList.remove('show');
+  });
+  document.getElementById('modalOverlay').addEventListener('click', function(e) {
+    if (e.target === this) this.classList.remove('show');
+  });
+  document.getElementById('prevMonth').addEventListener('click', function() {
+    currentMonth--;
+    if (currentMonth < 0) { currentMonth = 11; currentYear--; }
+    renderCalendar();
+  });
+  document.getElementById('nextMonth').addEventListener('click', function() {
+    currentMonth++;
+    if (currentMonth > 11) { currentMonth = 0; currentYear++; }
+    renderCalendar();
+  });
+
+  renderCalendar();
+})();
+</script>
+</body>
+</html>
